@@ -22,10 +22,14 @@ spec:
         app.kubernetes.io/component: ui
         app.kubernetes.io/instance: kargo
         app.kubernetes.io/name: kargo
+
+
     spec:
+      imagePullSecrets:
+      - name: kargo-registry
       containers:
       - name: ui
-        image: kargo-ui:placeholder
+        image: ghcr.io/vinaycharlie01/kargo
         imagePullPolicy: Always
         env:
         - name: API_URL

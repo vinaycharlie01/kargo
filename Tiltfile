@@ -1,7 +1,8 @@
 trigger_mode(TRIGGER_MODE_MANUAL)
-allow_k8s_contexts('orbstack')
+allow_k8s_contexts(k8s_context())
 
 load('ext://namespace', 'namespace_create')
+load('ext://secret', 'secret_yaml_docker_registry')
 
 # Install cluster-level prerequisites. These use local_resource (not k8s_yaml)
 # so that tilt down will NOT remove them.
@@ -43,7 +44,7 @@ local_resource(
   trigger_mode = TRIGGER_MODE_AUTO
 )
 docker_build(
-  'ghcr.io/akuity/kargo',
+  'ghcr.io/vinaycharlie01/kargo',
   '.',
   only = [
     'bin/controlplane/kargo',
@@ -53,14 +54,33 @@ docker_build(
 )
 
 docker_build(
-  'kargo-ui',
+  'ghcr.io/vinaycharlie01/kargo-ui',
   '.',
   only = ['ui/'],
   target = 'ui-dev', # Just the font end, served by vite, live updated
   live_update = [sync('ui', '/ui')]
 )
 
+
 namespace_create('kargo')
+
+docker_username = os.environ.get('DOCKER_USERNAME')
+docker_password = os.environ.get('DOCKER_PASSWORD')
+docker_registry = os.environ.get('DOCKER_REGISTRY','ghcr.io')
+
+user = os.environ.get('USER')
+if not docker_username or not docker_username or not docker_registry:
+    fail("DOCKER_USERNAME and DOCKER_PASSWORD must be set in environment!")
+
+
+k8s_yaml(secret_yaml_docker_registry(
+    name='kargo-registry',
+    username=docker_username,
+    password=docker_password,
+    server=docker_registry,
+    namespace='kargo'
+))
+
 k8s_resource(
   new_name = 'namespaces',
   objects = [
@@ -79,6 +99,7 @@ k8s_yaml(
     namespace = 'kargo',
     values = 'hack/tilt/values.dev.yaml',
     set = [
+      'image.pullSecrets[0].name='+ 'kargo-registry',
       'externalWebhooksServer.host=' + os.environ.get('KARGO_EXTERNAL_WEBHOOKS_SERVER_HOSTNAME', 'localhost:30083'),
       'externalWebhooksServer.tls.terminatedUpstream=' + os.environ.get('KARGO_EXTERNAL_WEBHOOKS_SERVER_TLS_TERMINATED_UPSTREAM', 'false')
     ]
