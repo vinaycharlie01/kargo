@@ -29,7 +29,7 @@ spec:
       - name: kargo-registry
       containers:
       - name: ui
-        image: ghcr.io/vinaycharlie01/kargo
+        image: ghcr.io/vinaycharlie01/kargo-ui
         imagePullPolicy: Always
         env:
         - name: API_URL

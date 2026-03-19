@@ -43,8 +43,15 @@ local_resource(
   labels = ['native-processes'],
   trigger_mode = TRIGGER_MODE_AUTO
 )
+
+docker_registry = os.environ.get('DOCKER_REGISTRY','ghcr.io')
+docker_username = os.environ.get('DOCKER_USERNAME','akuity')
+docker_password = os.environ.get('DOCKER_PASSWORD')
+docker_reponame = os.environ.get('DOCKER_REPO','kargo')
+docker_repoui = os.environ.get('DOCKER_REPO_UI','kargo')
+
 docker_build(
-  'ghcr.io/vinaycharlie01/kargo',
+  docker_registry+'/'+docker_username+'/'+docker_reponame,
   '.',
   only = [
     'bin/controlplane/kargo',
@@ -54,7 +61,7 @@ docker_build(
 )
 
 docker_build(
-  'ghcr.io/vinaycharlie01/kargo-ui',
+   docker_registry+'/'+docker_username+'/'+docker_repoui,
   '.',
   only = ['ui/'],
   target = 'ui-dev', # Just the font end, served by vite, live updated
@@ -64,12 +71,8 @@ docker_build(
 
 namespace_create('kargo')
 
-docker_username = os.environ.get('DOCKER_USERNAME')
-docker_password = os.environ.get('DOCKER_PASSWORD')
-docker_registry = os.environ.get('DOCKER_REGISTRY','ghcr.io')
 
-user = os.environ.get('USER')
-if not docker_username or not docker_username or not docker_registry:
+if not docker_username or not docker_password or not docker_registry:
     fail("DOCKER_USERNAME and DOCKER_PASSWORD must be set in environment!")
 
 
