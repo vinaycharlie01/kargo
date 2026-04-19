@@ -82,16 +82,40 @@ RUN GRPC_HEALTH_PROBE_VERSION=v0.4.41 && \
 ####################################################################################################
 FROM alpine:latest AS back-end-dev
 
-RUN apk update && apk add ca-certificates git gpg gpg-agent openssh-client tini
+ARG go_version=1.26.0
 
+# Install required tools FIRST
+RUN apk add --no-cache \
+    ca-certificates \
+    curl \
+    git \
+    tini
+
+# Install Go
+RUN curl -fsSL "https://go.dev/dl/go${go_version}.linux-amd64.tar.gz" -o go.tar.gz && \
+    tar -C /usr/local -xzf go.tar.gz && \
+    rm go.tar.gz
+
+# Set Go environment
+ENV GOPATH=/go
+ENV PATH=$GOPATH/bin:/usr/local/go/bin:$PATH
+
+RUN mkdir -p "$GOPATH/src" "$GOPATH/bin"
+
+# Install Delve debugger
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+
+# Copy your binaries
 COPY bin/credential-helper /usr/local/bin/credential-helper
 COPY bin/controlplane/kargo /usr/local/bin/kargo
 
+# Create non-root user
 RUN adduser -D -H -u 1000 kargo
 USER 1000:0
 
-ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["/usr/local/bin/kargo"]
+# EXPOSE 2345
+
+ENTRYPOINT ["/sbin/tini", "--", "dlv", "--listen=:2345", "--headless=true", "--continue", "--accept-multiclient", "--api-version=2", "exec", "/usr/local/bin/kargo", "--"]
 
 ####################################################################################################
 # ui-dev

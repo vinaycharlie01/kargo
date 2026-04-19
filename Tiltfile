@@ -24,7 +24,7 @@ local_resource(
 
 local_resource(
   'back-end-compile',
-  'CGO_ENABLED=0 GOOS=linux GOARCH=$(go env GOARCH) go build -o bin/controlplane/kargo ./cmd/controlplane',
+  'CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -gcflags="all=-N -l" -o bin/controlplane/kargo ./cmd/controlplane',
   deps=[
     'api/',
     'cmd/controlplane/',
@@ -45,11 +45,10 @@ local_resource(
 )
 
 docker_registry = os.environ.get('DOCKER_REGISTRY','ghcr.io')
-docker_username = os.environ.get('DOCKER_USERNAME','akuity')
+docker_username = os.environ.get('DOCKER_USERNAME','vinaycharlie01')
 docker_password = os.environ.get('DOCKER_PASSWORD')
 docker_reponame = os.environ.get('DOCKER_REPO','kargo')
-docker_repoui = os.environ.get('DOCKER_REPO_UI','kargo')
-
+docker_repoui = os.environ.get('DOCKER_REPO_UI','kargo-ui')
 docker_build(
   docker_registry+'/'+docker_username+'/'+docker_reponame,
   '.',
@@ -102,6 +101,7 @@ k8s_yaml(
     namespace = 'kargo',
     values = 'hack/tilt/values.dev.yaml',
     set = [
+      'image.repository=ghcr.io/vinaycharlie01/kargo',
       'image.pullSecrets[0].name='+ 'kargo-registry',
       'externalWebhooksServer.host=' + os.environ.get('KARGO_EXTERNAL_WEBHOOKS_SERVER_HOSTNAME', 'localhost:30083'),
       'externalWebhooksServer.tls.terminatedUpstream=' + os.environ.get('KARGO_EXTERNAL_WEBHOOKS_SERVER_TLS_TERMINATED_UPSTREAM', 'false')
@@ -111,6 +111,7 @@ k8s_yaml(
 # Normally the API server serves up the front end, but we want live updates
 # of the UI, so we're breaking it out into its own separate deployment here.
 k8s_yaml('hack/tilt/ui.yaml')
+
 
 k8s_resource(
   new_name = 'common',
@@ -153,7 +154,7 @@ k8s_resource(
   workload = 'kargo-api',
   new_name = 'api',
   port_forwards = [
-    '30081:8080'
+    '30081:8080',
   ],
   labels = ['kargo'],
   objects = [
@@ -174,6 +175,9 @@ k8s_resource(
   workload = 'kargo-controller',
   new_name = 'controller',
   labels = ['kargo'],
+  port_forwards = [
+      '2345:2345'
+  ],
   objects = [
     'kargo-controller:clusterrole',
     'kargo-controller:clusterrolebinding',
@@ -204,7 +208,7 @@ k8s_resource(
   workload = 'kargo-external-webhooks-server',
   new_name = 'external-webhooks-server',
   port_forwards = [
-    '30083:8080'
+    '30083:8080',
   ],
   labels = ['kargo'],
   objects = [
@@ -245,7 +249,7 @@ k8s_resource(
   workload = 'kargo-ui',
   new_name = 'ui',
   port_forwards = [
-    '30082:3333'
+    '30082:3333',
   ],
   labels = ['kargo'],
   trigger_mode = TRIGGER_MODE_AUTO
